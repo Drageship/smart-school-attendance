@@ -1,527 +1,108 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Smart School Mobile Attendance</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f1f5f9;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .status-btn {
-      transition: all 0.15s ease;
-    }
-    .status-btn:active {
-      transform: scale(0.95);
-    }
-  </style>
-</head>
-<body class="min-h-screen flex flex-col text-slate-900">
-
-  <!-- TOP STICKY NAVBAR -->
-  <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
-    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
-      <div>
-        <h1 id="schoolTitle" class="text-base font-bold tracking-tight">🎓 Smart School Attendance</h1>
-        <p id="connectionBadge" class="text-xs text-slate-400">Checking GitHub connection...</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button onclick="loadStudentsFromGitHub()" title="Reload Roster"
-          class="bg-slate-800 hover:bg-slate-700 text-sky-400 px-3 py-1.5 rounded-lg text-xs font-semibold">
-          🔄 Sync
-        </button>
-        <button onclick="toggleSetupModal(true)"
-          class="bg-slate-800 hover:bg-slate-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">
-          ⚙️ GitHub Setup
-        </button>
-      </div>
+<!-- DATE PICKER & STATUS BANNER -->
+<div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
+  <div class="flex items-center justify-between gap-3">
+    <div class="flex-1">
+      <label for="attDate" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
+        📅 Attendance Date
+      </label>
+      <input type="date" id="attDate"
+        class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
     </div>
-  </header>
-
-  <!-- MAIN CONTENT CONTAINER -->
-  <main class="flex-1 max-w-2xl w-full mx-auto px-4 py-4 pb-28">
-
-    <!-- DATE PICKER & STATUS BANNER -->
-    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4">
-      <div class="flex items-center justify-between gap-3">
-        <div class="flex-1">
-          <label for="attDate" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">
-            📅 Attendance Date
-          </label>
-          <input type="date" id="attDate"
-            class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div id="backBtnContainer" class="hidden pt-5">
-          <button onclick="showClassSelection()"
-            class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-300">
-            ← All Classes
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ALERT / TOAST MESSAGE -->
-    <div id="alertBox" class="hidden mb-4 p-3.5 rounded-xl text-sm font-medium border"></div>
-
-    <!-- VIEW 1: CLASS CARDS SELECTION -->
-    <section id="classSelectionView">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600">Select Class to Mark Attendance</h2>
-        <span id="totalClassesBadge" class="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full">0 Classes</span>
-      </div>
-      <div id="classCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <!-- Populated dynamically -->
-      </div>
-    </section>
-
-    <!-- VIEW 2: STUDENT ATTENDANCE ROSTER FOR SELECTED CLASS -->
-    <section id="studentMarkingView" class="hidden">
-      <!-- Live Class Summary Header -->
-      <div class="bg-slate-900 text-white rounded-2xl p-4 mb-4 shadow-sm">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <h2 id="activeClassName" class="text-lg font-bold">Class</h2>
-            <p id="activeClassSub" class="text-xs text-slate-400">0 Students Enrolled</p>
-          </div>
-          <div class="flex gap-2">
-            <button onclick="markAllClass('PRESENT')"
-              class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
-              ✅ All Present
-            </button>
-            <button onclick="markAllClass('ABSENT')"
-              class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
-              ❌ All Absent
-            </button>
-          </div>
-        </div>
-
-        <!-- Live Counters -->
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="bg-slate-800 rounded-xl py-2">
-            <div id="cntPresent" class="text-lg font-extrabold text-emerald-400">0</div>
-            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Present</div>
-          </div>
-          <div class="bg-slate-800 rounded-xl py-2">
-            <div id="cntAbsent" class="text-lg font-extrabold text-rose-400">0</div>
-            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Absent</div>
-          </div>
-          <div class="bg-slate-800 rounded-xl py-2">
-            <div id="cntLeave" class="text-lg font-extrabold text-amber-400">0</div>
-            <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Leave</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Student List -->
-      <div id="studentListContainer" class="space-y-3">
-        <!-- Student cards injected here -->
-      </div>
-    </section>
-
-  </main>
-
-  <!-- STICKY BOTTOM SUBMIT BAR -->
-  <footer id="submitFooter" class="hidden fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 p-3 shadow-lg z-30">
-    <div class="max-w-2xl mx-auto">
-      <button id="btnSubmitGitHub" onclick="submitAttendanceToGitHub()"
-        class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-base py-3.5 rounded-2xl shadow-md flex items-center justify-center gap-2">
-        ☁️ Submit Attendance to GitHub
+    <div id="backBtnContainer" class="hidden pt-5">
+      <button onclick="showClassSelection()"
+        class="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs px-4 py-2.5 rounded-xl border border-slate-300">
+        ← All Classes
       </button>
     </div>
-  </footer>
+  </div>
+</div>
 
-  <!-- GITHUB SETUP MODAL -->
-  <div id="setupModal" class="hidden fixed inset-0 bg-slate-900/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-lg font-bold text-slate-900">⚙️ GitHub Cloud Setup</h3>
-        <button onclick="toggleSetupModal(false)" class="text-slate-400 hover:text-slate-700 text-xl font-bold">&times;</button>
+<!-- ALERT / TOAST MESSAGE -->
+<div id="alertBox" class="hidden mb-4 p-3.5 rounded-xl text-sm font-medium border"></div>
+
+<!-- VIEW 1: CLASS CARDS SELECTION -->
+<section id="classSelectionView">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-bold uppercase tracking-wider text-slate-600">Select Class to Mark Attendance</h2>
+    <span id="totalClassesBadge" class="text-xs font-semibold bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-full">0 Classes</span>
+  </div>
+  <div id="classCardsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <!-- Populated dynamically -->
+  </div>
+</section>
+
+<!-- VIEW 2: STUDENT ATTENDANCE ROSTER FOR SELECTED CLASS -->
+<section id="studentMarkingView" class="hidden">
+  <!-- Live Class Summary Header -->
+  <div class="bg-slate-900 text-white rounded-2xl p-4 mb-4 shadow-sm">
+    <div class="flex items-center justify-between mb-3">
+      <div>
+        <h2 id="activeClassName" class="text-lg font-bold">Class</h2>
+        <p id="activeClassSub" class="text-xs text-slate-400">0 Students Enrolled</p>
       </div>
-      <p class="text-xs text-slate-500 mb-4">
-        Auto-filled when opening the 1-Click Teacher Web Link from the Python Desktop App.
-      </p>
-
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">GitHub Owner / Username</label>
-          <input type="text" id="cfgOwner" placeholder="e.g. school-admin"
-            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Repository Name</label>
-          <input type="text" id="cfgRepo" placeholder="e.g. smart-school-attendance"
-            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Branch</label>
-          <input type="text" id="cfgBranch" value="main"
-            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Personal Access Token (PAT)</label>
-          <input type="password" id="cfgToken" placeholder="ghp_xxxxxxxxxxxx"
-            class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
-        </div>
-      </div>
-
-      <div class="mt-5 flex gap-2">
-        <button onclick="saveSetupFromModal()"
-          class="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm py-2.5 rounded-xl">
-          💾 Save & Connect
+      <div class="flex gap-2">
+        <button onclick="markAllClass('PRESENT')"
+          class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+          ✅ All Present
         </button>
+        <button onclick="markAllClass('ABSENT')"
+          class="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">
+          ❌ All Absent
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Counters -->
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="bg-slate-800 rounded-xl py-2">
+        <div id="cntPresent" class="text-lg font-extrabold text-emerald-400">0</div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Present</div>
+      </div>
+      <div class="bg-slate-800 rounded-xl py-2">
+        <div id="cntAbsent" class="text-lg font-extrabold text-rose-400">0</div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Absent</div>
+      </div>
+      <div class="bg-slate-800 rounded-xl py-2">
+        <div id="cntLeave" class="text-lg font-extrabold text-amber-400">0</div>
+        <div class="text-[11px] uppercase tracking-wider text-slate-400 font-semibold">Leave</div>
       </div>
     </div>
   </div>
 
-  <script>
-    let config = { owner: "", repo: "", branch: "main", token: "" };
-    let rosterData = { school_name: "Smart School System", classes: [], students: [] };
-    let selectedClass = null;
-    let attendanceMap = {};
+  <!-- Student List -->
+  <div id="studentListContainer" class="space-y-3">
+    <!-- Student cards injected here -->
+  </div>
+</section>
 
-    document.addEventListener("DOMContentLoaded", () => {
-      const today = new Date().toISOString().split("T")[0];
-      document.getElementById("attDate").value = today;
 
-      const params = new URLSearchParams(window.location.search);
-      const saved = JSON.parse(localStorage.getItem("smartschool_gh_cfg") || "{}");
+  <div class="space-y-3">
+    <div>
+      <label class="block text-xs font-bold text-slate-700 mb-1">GitHub Owner / Username</label>
+      <input type="text" id="cfgOwner" placeholder="e.g. school-admin"
+        class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xs font-bold text-slate-700 mb-1">Repository Name</label>
+      <input type="text" id="cfgRepo" placeholder="e.g. smart-school-attendance"
+        class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xs font-bold text-slate-700 mb-1">Branch</label>
+      <input type="text" id="cfgBranch" value="main"
+        class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
+    </div>
+    <div>
+      <label class="block text-xs font-bold text-slate-700 mb-1">Personal Access Token (PAT)</label>
+      <input type="password" id="cfgToken" placeholder="ghp_xxxxxxxxxxxx"
+        class="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm" />
+    </div>
+  </div>
 
-      config.owner = params.get("owner") || saved.owner || "";
-      config.repo = params.get("repo") || saved.repo || "";
-      config.branch = params.get("branch") || saved.branch || "main";
-      config.token = params.get("token") || saved.token || "";
-
-      if (config.owner && config.repo && config.token) {
-        localStorage.setItem("smartschool_gh_cfg", JSON.stringify(config));
-        if (params.has("token")) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      }
-
-      populateModalFields();
-      updateConnectionBadge();
-
-      if (config.owner && config.repo && config.token) {
-        loadStudentsFromGitHub();
-      } else {
-        toggleSetupModal(true);
-      }
-    });
-
-    function populateModalFields() {
-      document.getElementById("cfgOwner").value = config.owner;
-      document.getElementById("cfgRepo").value = config.repo;
-      document.getElementById("cfgBranch").value = config.branch || "main";
-      document.getElementById("cfgToken").value = config.token;
-    }
-
-    function updateConnectionBadge() {
-      const badge = document.getElementById("connectionBadge");
-      if (config.owner && config.repo && config.token) {
-        badge.textContent = `Connected: ${config.owner}/${config.repo}`;
-        badge.className = "text-xs text-emerald-400 font-medium";
-      } else {
-        badge.textContent = "Not connected — Tap ⚙️ GitHub Setup";
-        badge.className = "text-xs text-amber-400 font-medium";
-      }
-    }
-
-    function toggleSetupModal(show) {
-      document.getElementById("setupModal").classList.toggle("hidden", !show);
-    }
-
-    function saveSetupFromModal() {
-      config.owner = document.getElementById("cfgOwner").value.trim();
-      config.repo = document.getElementById("cfgRepo").value.trim();
-      config.branch = document.getElementById("cfgBranch").value.trim() || "main";
-      config.token = document.getElementById("cfgToken").value.trim();
-
-      localStorage.setItem("smartschool_gh_cfg", JSON.stringify(config));
-      updateConnectionBadge();
-      toggleSetupModal(false);
-      loadStudentsFromGitHub();
-    }
-
-    function showAlert(msg, type = "info") {
-      const box = document.getElementById("alertBox");
-      box.classList.remove("hidden", "bg-emerald-50", "text-emerald-800", "border-emerald-200",
-        "bg-rose-50", "text-rose-800", "border-rose-200", "bg-blue-50", "text-blue-800", "border-blue-200");
-
-      if (type === "success") {
-        box.classList.add("bg-emerald-50", "text-emerald-800", "border-emerald-200");
-      } else if (type === "error") {
-        box.classList.add("bg-rose-50", "text-rose-800", "border-rose-200");
-      } else {
-        box.classList.add("bg-blue-50", "text-blue-800", "border-blue-200");
-      }
-      box.textContent = msg;
-    }
-
-    async function loadStudentsFromGitHub() {
-      if (!config.owner || !config.repo || !config.token) {
-        showAlert("Please configure GitHub credentials in ⚙️ GitHub Setup.", "error");
-        return;
-      }
-
-      showAlert("⏳ Syncing student directory from GitHub...", "info");
-      try {
-        const url = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/students.json?ref=${config.branch}&t=${Date.now()}`;
-        const resp = await fetch(url, {
-          headers: {
-            "Authorization": `token ${config.token}`,
-            "Accept": "application/vnd.github.v3+json"
-          }
-        });
-
-        if (!resp.ok) {
-          throw new Error(`Could not load students.json (HTTP ${resp.status}). Push students from Python first.`);
-        }
-
-        const fileObj = await resp.json();
-        const decoded = decodeURIComponent(escape(atob(fileObj.content.replace(/\n/g, ""))));
-        rosterData = JSON.parse(decoded);
-
-        if (rosterData.school_name) {
-          document.getElementById("schoolTitle").textContent = `🎓 ${rosterData.school_name}`;
-        }
-
-        attendanceMap = {};
-        (rosterData.students || []).forEach(st => {
-          const existing = (st.attendance || "").toUpperCase();
-          attendanceMap[st.id] = ["PRESENT", "ABSENT", "LEAVE"].includes(existing) ? existing : "PRESENT";
-        });
-
-        renderClassCards();
-        showAlert(`✅ Loaded ${rosterData.students.length} students across ${rosterData.classes.length} classes.`, "success");
-      } catch (err) {
-        showAlert(`❌ Sync Error: ${err.message}`, "error");
-      }
-    }
-
-    function renderClassCards() {
-      const grid = document.getElementById("classCardsGrid");
-      grid.innerHTML = "";
-
-      const classes = rosterData.classes || [];
-      const students = rosterData.students || [];
-      document.getElementById("totalClassesBadge").textContent = `${classes.length} Classes`;
-
-      if (classes.length === 0) {
-        grid.innerHTML = `<div class="col-span-full bg-white p-6 rounded-2xl text-center text-sm text-slate-500 border border-slate-200">
-          No classes found. Push student roster from the Python Desktop App.
-        </div>`;
-        return;
-      }
-
-      classes.forEach(clsName => {
-        const classStudents = students.filter(s => s.class === clsName);
-        const card = document.createElement("button");
-        card.type = "button";
-        card.onclick = () => openClassAttendance(clsName);
-        card.className = "bg-white hover:bg-blue-50/60 active:scale-[0.99] transition text-left p-4 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between";
-
-        card.innerHTML = `
-          <div>
-            <div class="text-base font-bold text-slate-900">🏫 ${clsName}</div>
-            <div class="text-xs text-slate-500 mt-0.5">${classStudents.length} Students Enrolled</div>
-          </div>
-          <div class="bg-blue-100 text-blue-700 font-bold text-xs px-3 py-1.5 rounded-xl">
-            Mark →
-          </div>
-        `;
-        grid.appendChild(card);
-      });
-    }
-
-    function showClassSelection() {
-      selectedClass = null;
-      document.getElementById("classSelectionView").classList.remove("hidden");
-      document.getElementById("studentMarkingView").classList.add("hidden");
-      document.getElementById("backBtnContainer").classList.add("hidden");
-      document.getElementById("submitFooter").classList.add("hidden");
-    }
-
-    function openClassAttendance(clsName) {
-      selectedClass = clsName;
-      document.getElementById("classSelectionView").classList.add("hidden");
-      document.getElementById("studentMarkingView").classList.remove("hidden");
-      document.getElementById("backBtnContainer").classList.remove("hidden");
-      document.getElementById("submitFooter").classList.remove("hidden");
-
-      const classStudents = (rosterData.students || []).filter(s => s.class === clsName);
-      document.getElementById("activeClassName").textContent = `🏫 ${clsName}`;
-      document.getElementById("activeClassSub").textContent = `${classStudents.length} Students Enrolled`;
-
-      renderStudentCards();
-    }
-
-    function renderStudentCards() {
-      const container = document.getElementById("studentListContainer");
-      container.innerHTML = "";
-
-      const classStudents = (rosterData.students || []).filter(s => s.class === selectedClass);
-
-      classStudents.forEach(st => {
-        const status = attendanceMap[st.id] || "PRESENT";
-        const card = document.createElement("div");
-        card.className = "bg-white rounded-2xl p-3.5 shadow-sm border border-slate-200";
-
-        const btnStyle = (target) => {
-          if (status === target) {
-            if (target === "PRESENT") return "bg-emerald-600 text-white border-emerald-600 shadow-sm";
-            if (target === "ABSENT") return "bg-rose-600 text-white border-rose-600 shadow-sm";
-            if (target === "LEAVE") return "bg-amber-500 text-white border-amber-500 shadow-sm";
-          }
-          return "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100";
-        };
-
-        card.innerHTML = `
-          <div class="flex items-center justify-between mb-2.5">
-            <div>
-              <div class="text-sm font-bold text-slate-900">
-                <span class="text-xs font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded mr-1">#${st.roll_no || st.id}</span>
-                ${st.name}
-              </div>
-              <div class="text-xs text-slate-500 mt-0.5">S/O: ${st.father || "N/A"} • ID: ${st.id}</div>
-            </div>
-          </div>
-          <div class="grid grid-cols-3 gap-2">
-            <button type="button" onclick="setStudentStatus('${st.id}', 'PRESENT')"
-              class="status-btn border rounded-xl py-2 text-xs font-bold ${btnStyle('PRESENT')}">
-              ✅ Present
-            </button>
-            <button type="button" onclick="setStudentStatus('${st.id}', 'ABSENT')"
-              class="status-btn border rounded-xl py-2 text-xs font-bold ${btnStyle('ABSENT')}">
-              ❌ Absent
-            </button>
-            <button type="button" onclick="setStudentStatus('${st.id}', 'LEAVE')"
-              class="status-btn border rounded-xl py-2 text-xs font-bold ${btnStyle('LEAVE')}">
-              🟡 Leave
-            </button>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-
-      updateLiveCounters();
-    }
-
-    function setStudentStatus(studentId, status) {
-      attendanceMap[studentId] = status;
-      renderStudentCards();
-    }
-
-    function markAllClass(status) {
-      const classStudents = (rosterData.students || []).filter(s => s.class === selectedClass);
-      classStudents.forEach(st => {
-        attendanceMap[st.id] = status;
-      });
-      renderStudentCards();
-    }
-
-    function updateLiveCounters() {
-      const classStudents = (rosterData.students || []).filter(s => s.class === selectedClass);
-      let p = 0, a = 0, l = 0;
-      classStudents.forEach(st => {
-        const s = attendanceMap[st.id] || "PRESENT";
-        if (s === "PRESENT") p++;
-        else if (s === "ABSENT") a++;
-        else if (s === "LEAVE") l++;
-      });
-      document.getElementById("cntPresent").textContent = p;
-      document.getElementById("cntAbsent").textContent = a;
-      document.getElementById("cntLeave").textContent = l;
-    }
-
-    async function submitAttendanceToGitHub() {
-      const btn = document.getElementById("btnSubmitGitHub");
-      const attDate = document.getElementById("attDate").value;
-      if (!attDate) {
-        showAlert("Please select an Attendance Date first.", "error");
-        return;
-      }
-
-      btn.disabled = true;
-      btn.textContent = "⏳ Submitting to GitHub...";
-
-      try {
-        const apiUrl = `https://api.github.com/repos/${config.owner}/${config.repo}/contents/attendance.json`;
-        const headers = {
-          "Authorization": `token ${config.token}`,
-          "Accept": "application/vnd.github.v3+json",
-          "Content-Type": "application/json"
-        };
-
-        let existingSha = null;
-        let existingRecords = [];
-
-        const getResp = await fetch(`${apiUrl}?ref=${config.branch}&t=${Date.now()}`, { headers });
-        if (getResp.ok) {
-          const existingFile = await getResp.json();
-          existingSha = existingFile.sha;
-          const decoded = decodeURIComponent(escape(atob(existingFile.content.replace(/\n/g, ""))));
-          const parsed = JSON.parse(decoded);
-          if (parsed.date === attDate && Array.isArray(parsed.records)) {
-            existingRecords = parsed.records;
-          }
-        }
-
-        const recordMap = new Map();
-        existingRecords.forEach(r => recordMap.set(String(r.student_id), r));
-
-        const classStudents = (rosterData.students || []).filter(s => s.class === selectedClass);
-        classStudents.forEach(st => {
-          recordMap.set(String(st.id), {
-            student_id: st.id,
-            student_name: st.name,
-            class_name: st.class,
-            status: attendanceMap[st.id] || "PRESENT"
-          });
-        });
-
-        const payloadObj = {
-          date: attDate,
-          submitted_at: new Date().toISOString(),
-          last_updated_class: selectedClass,
-          records: Array.from(recordMap.values())
-        };
-
-        const jsonStr = JSON.stringify(payloadObj, null, 2);
-        const b64Content = btoa(unescape(encodeURIComponent(jsonStr)));
-
-        const putBody = {
-          message: `Attendance submitted for ${selectedClass} (${attDate})`,
-          content: b64Content,
-          branch: config.branch
-        };
-        if (existingSha) {
-          putBody.sha = existingSha;
-        }
-
-        const putResp = await fetch(apiUrl, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(putBody)
-        });
-
-        if (!putResp.ok) {
-          const errTxt = await putResp.text();
-          throw new Error(`GitHub rejected submission (${putResp.status}): ${errTxt}`);
-        }
-
-        showAlert(`✅ Attendance for ${selectedClass} (${attDate}) submitted to GitHub!`, "success");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } catch (err) {
-        showAlert(`❌ Submission Failed: ${err.message}`, "error");
-        window.scrollTo({ top: 0, behavior: "smooth" });
-      } finally {
-        btn.disabled = false;
-        btn.textContent = "☁️ Submit Attendance to GitHub";
-      }
-    }
-  </script>
-</body>
-</html>
+  <div class="mt-5 flex gap-2">
+    <button onclick="saveSetupFromModal()"
+      class="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-sm py-2.5 rounded-xl">
+      💾 Save & Connect
+    </button>
+  </div>
+</div>
