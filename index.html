@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Class Teacher Attendance Portal</title>
+    <!-- Tailwind CSS for clean, responsive mobile-first design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9;
+            padding-bottom: 95px;
+        }
+    </style>
+</head>
+<body class="text-slate-900">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 text-white px-4 py-4 shadow-md sticky top-0 z-20">
+        <div class="max-w-xl mx-auto flex items-center justify-between">
+            <div>
+                <h1 class="text-lg font-extrabold tracking-tight flex items-center gap-2">
+                    <span>📱</span> Teacher Attendance Portal
+                </h1>
+                <p id="connectionBadge" class="text-xs text-amber-400 font-medium mt-0.5">
+                    ● Connecting to Python Server...
+                </p>
+            </div>
+            <button onclick="toggleServerModal()" class="bg-slate-800 hover:bg-slate-700 text-xs font-semibold px-3 py-2 rounded-lg border border-slate-700 transition">
+                ⚙️ Server URL
+            </button>
+        </div>
+    </header>
+
+    <!-- Custom Toast Notification -->
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 bg-emerald-600 text-white px-5 py-3 rounded-full font-bold text-sm shadow-xl hidden z-50 transition-all">
+        ✅ Attendance Submitted & Synced!
+    </div>
+
+    <!-- Server Configuration Modal (For GitHub Pages -> Local Python Connection) -->
+    <div id="serverModal" class="fixed inset-0 bg-slate-900/60 hidden items-center justify-center p-4 z-40">
+        <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl">
+            <h2 class="text-base font-bold text-slate-900 mb-1">🌍 Public Server Connection (Any Network)</h2>
+            <p class="text-xs text-slate-500 mb-4">
+                Paste the <strong>Live Public HTTPS URL</strong> shown at the top of your Python Desktop App (e.g., <code class="bg-slate-100 px-1 rounded">https://xxxx.lhr.life</code> or <code class="bg-slate-100 px-1 rounded">https://xxxx.trycloudflare.com</code>):
+            </p>
+            <input id="serverUrlInput" type="url" placeholder="https://your-public-url.lhr.life"
+                class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4">
+            <div class="flex justify-end gap-2">
+                <button onclick="toggleServerModal()" class="px-4 py-2 text-sm font-semibold text-slate-600 bg-slate-100 rounded-xl">
+                    Cancel
+                </button>
+                <button onclick="saveServerUrl()" class="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl">
+                    Save & Connect
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Container -->
+    <main class="max-w-xl mx-auto px-4 pt-5 space-y-4">
+
+        <!-- Step 1: Class Selection Card -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between mb-2">
+                <label for="classSelect" class="text-sm font-bold text-slate-700">
+                    1. Select Your Class:
+                </label>
+                <span id="dateDisplay" class="text-xs font-semibold text-slate-400"></span>
+            </div>
+            <select id="classSelect" onchange="loadStudents()"
+                class="w-full p-3 text-base font-bold rounded-xl border-2 border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-500 focus:outline-none transition">
+                <option value="">-- Loading Classes... --</option>
+            </select>
+        </section>
+
+        <!-- Quick Attendance Summary Pills -->
+        <section id="summaryBar" class="hidden grid grid-cols-4 gap-2 text-center">
+            <div class="bg-emerald-50 border border-emerald-200 rounded-xl py-2">
+                <div id="countPresent" class="text-base font-extrabold text-emerald-700">0</div>
+                <div class="text-[11px] font-semibold text-emerald-600">Present</div>
+            </div>
+            <div class="bg-rose-50 border border-rose-200 rounded-xl py-2">
+                <div id="countAbsent" class="text-base font-extrabold text-rose-700">0</div>
+                <div class="text-[11px] font-semibold text-rose-600">Absent</div>
+            </div>
+            <div class="bg-amber-50 border border-amber-200 rounded-xl py-2">
+                <div id="countLate" class="text-base font-extrabold text-amber-700">0</div>
+                <div class="text-[11px] font-semibold text-amber-600">Late</div>
+            </div>
+            <div class="bg-indigo-50 border border-indigo-200 rounded-xl py-2">
+                <div id="countLeave" class="text-base font-extrabold text-indigo-700">0</div>
+                <div class="text-[11px] font-semibold text-indigo-600">Leave</div>
+            </div>
+        </section>
+
+        <!-- Step 2: Students Attendance List Card -->
+        <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-sm font-bold text-slate-700">
+                    2. Mark Attendance <span id="studentCountBadge" class="text-blue-600"></span>
+                </h2>
+                <button onclick="markAllPresent()" class="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition">
+                    ✓ All Present
+                </button>
+            </div>
+
+            <div id="studentsContainer" class="divide-y divide-slate-100">
+                <p class="text-center text-sm text-slate-400 py-8">Select a class above to load students...</p>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Fixed Bottom Submit Bar -->
+    <div class="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3 z-20">
+        <div class="max-w-xl mx-auto">
+            <button id="submitBtn" onclick="submitAttendance()"
+                class="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-extrabold text-base py-3.5 rounded-2xl shadow-lg shadow-blue-600/25 transition">
+                ✅ SUBMIT ATTENDANCE
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Display Today's Date
+        document.getElementById("dateDisplay").textContent = new Date().toLocaleDateString("en-PK", {
+            weekday: "short", day: "numeric", month: "short", year: "numeric"
+        });
+
+        // Resolve Public Server URL from link query param (?server=https://...) or window hash (#server=https://...)
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+        let API_BASE = (urlParams.get("server") || hashParams.get("server") || window.savedServerUrl || "").replace(/\/$/, "");
+
+        let currentStudents = [];
+        let isDemoMode = false;
+
+        // Fallback sample data in case teacher opens GitHub Pages before connecting Python server
+        const DEMO_STUDENTS = [
+            { id: 1, roll_no: "101", name: "Muhammad Ali", father_name: "Ahmed Raza", student_class: "9th", attendance: "Present" },
+            { id: 2, roll_no: "102", name: "Ayesha Khan", father_name: "Tariq Mahmood", student_class: "9th", attendance: "Present" },
+            { id: 7, roll_no: "107", name: "Hamza Tariq", father_name: "Tariq Jameel", student_class: "9th", attendance: "Present" },
+            { id: 3, roll_no: "103", name: "Usman Ghani", father_name: "Muhammad Yousaf", student_class: "10th", attendance: "Absent" },
+            { id: 4, roll_no: "104", name: "Fatima Zahra", father_name: "Syed Zafar Ali", student_class: "10th", attendance: "Present" },
+            { id: 9, roll_no: "109", name: "Omar Farooq", father_name: "Farooq Azam", student_class: "10th", attendance: "Leave" },
+            { id: 5, roll_no: "105", name: "Bilal Ahmed", father_name: "Khalid Mehmood", student_class: "8th", attendance: "Present" },
+            { id: 6, roll_no: "106", name: "Zainab Bibi", father_name: "Abdul Rehman", student_class: "8th", attendance: "Late" },
+            { id: 8, roll_no: "108", name: "Hira Noor", father_name: "Noor Muhammad", student_class: "7th", attendance: "Present" },
+            { id: 10, roll_no: "110", name: "Sana Malik", father_name: "Malik Aslam", student_class: "7th", attendance: "Present" }
+        ];
+
+        function toggleServerModal() {
+            const modal = document.getElementById("serverModal");
+            const input = document.getElementById("serverUrlInput");
+            input.value = API_BASE;
+            modal.classList.toggle("hidden");
+            modal.classList.toggle("flex");
+        }
+
+        function saveServerUrl() {
+            const val = document.getElementById("serverUrlInput").value.trim().replace(/\/$/, "");
+            API_BASE = val;
+            window.savedServerUrl = val;
+            // Update URL hash so bookmarking/refreshing keeps the public server connected
+            if (val) {
+                window.history.replaceState(null, "", `#server=${encodeURIComponent(val)}`);
+            }
+            toggleServerModal();
+            loadClasses();
+        }
+
+        async function loadClasses() {
+            const badge = document.getElementById("connectionBadge");
+            const sel = document.getElementById("classSelect");
+
+            try {
+                if (window.location.hostname.includes("github.io") && !API_BASE) {
+                    throw new Error("No public server URL provided yet");
+                }
+                const res = await fetch(`${API_BASE}/api/classes`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
+                if (!res.ok) throw new Error("Server unreachable");
+                const classes = await res.json();
+
+                isDemoMode = false;
+                badge.textContent = "● Live Connected (Global Sync Active)";
+                badge.className = "text-xs text-emerald-400 font-semibold mt-0.5";
+
+                sel.innerHTML = '<option value="">-- Select Class --</option>';
+                classes.forEach(c => {
+                    const opt = document.createElement("option");
+                    opt.value = c;
+                    opt.textContent = `Class ${c}`;
+                    sel.appendChild(opt);
+                });
+
+                if (classes.length > 0) {
+                    sel.value = classes[0];
+                    loadStudents();
+                }
+            } catch (err) {
+                // Switch gracefully to Preview/Demo Mode if Python server isn't linked yet
+                isDemoMode = true;
+                badge.textContent = "● Preview Mode (Tap ⚙️ Server URL to connect Python)";
+                badge.className = "text-xs text-amber-400 font-semibold mt-0.5";
+
+                const demoClasses = [...new Set(DEMO_STUDENTS.map(s => s.student_class))];
+                sel.innerHTML = '<option value="">-- Select Class (Preview) --</option>';
+                demoClasses.forEach(c => {
+                    const opt = document.createElement("option");
+                    opt.value = c;
+                    opt.textContent = `Class ${c}`;
+                    sel.appendChild(opt);
+                });
+                sel.value = demoClasses[0];
+                loadStudents();
+            }
+        }
+
+        async function loadStudents() {
+            const cls = document.getElementById("classSelect").value;
+            const box = document.getElementById("studentsContainer");
+            const summaryBar = document.getElementById("summaryBar");
+
+            if (!cls) {
+                box.innerHTML = '<p class="text-center text-sm text-slate-400 py-8">Select a class first.</p>';
+                summaryBar.classList.add("hidden");
+                return;
+            }
+
+            if (isDemoMode) {
+                currentStudents = DEMO_STUDENTS.filter(s => s.student_class === cls).map(s => ({ ...s }));
+            } else {
+                const res = await fetch(`${API_BASE}/api/students?class=${encodeURIComponent(cls)}`, {
+                    headers: { "ngrok-skip-browser-warning": "true" }
+                });
+                currentStudents = await res.json();
+            }
+
+            renderStudents();
+        }
+
+        function renderStudents() {
+            const box = document.getElementById("studentsContainer");
+            const summaryBar = document.getElementById("summaryBar");
+            const countBadge = document.getElementById("studentCountBadge");
+
+            countBadge.textContent = `(${currentStudents.length})`;
+
+            if (currentStudents.length === 0) {
+                box.innerHTML = '<p class="text-center text-sm text-slate-400 py-8">No students found in this class.</p>';
+                summaryBar.classList.add("hidden");
+                return;
+            }
+
+            summaryBar.classList.remove("hidden");
+            box.innerHTML = "";
+
+            const statusConfig = {
+                Present: { label: "P", active: "bg-emerald-600 text-white border-emerald-600 shadow-sm" },
+                Absent:  { label: "A", active: "bg-rose-600 text-white border-rose-600 shadow-sm" },
+                Late:    { label: "Lt", active: "bg-amber-500 text-white border-amber-500 shadow-sm" },
+                Leave:   { label: "Lv", active: "bg-indigo-600 text-white border-indigo-600 shadow-sm" }
+            };
+
+            currentStudents.forEach((st, idx) => {
+                const row = document.createElement("div");
+                row.className = "py-3.5 flex items-center justify-between gap-2";
+
+                const buttonsHtml = Object.entries(statusConfig).map(([status, cfg]) => {
+                    const isSelected = st.attendance === status;
+                    const btnClasses = isSelected
+                        ? cfg.active
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100";
+                    return `
+                        <button type="button"
+                            onclick="setStatus(${idx}, '${status}')"
+                            class="w-10 h-10 rounded-xl border font-extrabold text-xs transition ${btnClasses}">
+                            ${cfg.label}
+                        </button>
+                    `;
+                }).join("");
+
+                row.innerHTML = `
+                    <div class="min-w-0 flex-1">
+                        <div class="font-bold text-sm text-slate-900 truncate">
+                            <span class="text-blue-600 mr-1">#${st.roll_no}</span> ${st.name}
+                        </div>
+                        <div class="text-xs text-slate-500 truncate">S/O: ${st.father_name}</div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        ${buttonsHtml}
+                    </div>
+                `;
+                box.appendChild(row);
+            });
+
+            updateSummaryCounts();
+        }
+
+        function setStatus(index, status) {
+            currentStudents[index].attendance = status;
+            renderStudents();
+        }
+
+        function markAllPresent() {
+            currentStudents.forEach(s => s.attendance = "Present");
+            renderStudents();
+        }
+
+        function updateSummaryCounts() {
+            document.getElementById("countPresent").textContent = currentStudents.filter(s => s.attendance === "Present").length;
+            document.getElementById("countAbsent").textContent = currentStudents.filter(s => s.attendance === "Absent").length;
+            document.getElementById("countLate").textContent = currentStudents.filter(s => s.attendance === "Late").length;
+            document.getElementById("countLeave").textContent = currentStudents.filter(s => s.attendance === "Leave").length;
+        }
+
+        async function submitAttendance() {
+            if (currentStudents.length === 0) return;
+
+            const btn = document.getElementById("submitBtn");
+            btn.disabled = true;
+            btn.textContent = "⏳ Submitting...";
+
+            try {
+                if (!isDemoMode) {
+                    const updates = currentStudents.map(s => ({ id: s.id, attendance: s.attendance }));
+                    const res = await fetch(`${API_BASE}/api/attendance`, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "ngrok-skip-browser-warning": "true"
+                        },
+                        body: JSON.stringify({ updates })
+                    });
+                    if (!res.ok) throw new Error("Failed to sync");
+                }
+                showToast(isDemoMode
+                    ? "✅ Preview Saved! Tap ⚙️ Server URL to link Python PC."
+                    : "✅ Attendance Synced Globally to Python App!");
+            } catch (err) {
+                showToast("❌ Connection Failed! Check Public Server URL.", true);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "✅ SUBMIT ATTENDANCE";
+            }
+        }
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById("toast");
+            toast.textContent = message;
+            toast.className = `fixed top-20 left-1/2 -translate-x-1/2 text-white px-5 py-3 rounded-full font-bold text-xs sm:text-sm shadow-xl z-50 ${
+                isError ? "bg-rose-600" : "bg-emerald-600"
+            }`;
+            toast.classList.remove("hidden");
+            setTimeout(() => toast.classList.add("hidden"), 3200);
+        }
+
+        // Initialize on page load
+        loadClasses();
+    </script>
+</body>
+</html>
